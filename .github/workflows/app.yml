@@ -1,0 +1,73 @@
+name: demo-api
+
+on:
+  pull_request:
+    paths: ["apps/demo-api/**", ".github/workflows/app.yml"]
+  push:
+    branches: [main]
+    paths: ["apps/demo-api/**", ".github/workflows/app.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: apps/demo-api
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
+        with:
+          go-version-file: apps/demo-api/go.mod
+          cache-dependency-path: apps/demo-api/go.sum
+      - run: go vet ./...
+      - run: go test -race -count=1 -coverprofile=coverage.out ./...
+      - run: go tool cover -func=coverage.out | tail -1
+      - uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
+        with:
+          version: v2.15.0
+          working-directory: apps/demo-api
+
+  image:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: build (multi-arch check) and load amd64 image
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: apps/demo-api
+          platforms: linux/amd64
+          load: true
+          push: false
+          tags: demo-api:ci
+          build-args: VERSION=${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: smoke test container (read-only rootfs, non-root)
+        run: |
+          set -euo pipefail
+          docker run -d --name demo --read-only --cap-drop ALL -p 8080:8080 demo-api:ci
+          for i in $(seq 1 20); do curl -fsS localhost:8080/healthz && break || sleep 0.5; done
+          curl -fsS -X POST localhost:8080/v1/summarize -H 'Content-Type: application/json' \
+            -d '{"text":"One. Two sentences here. Three.","max_sentences":1}'
+          test "$(docker inspect demo --format '{{.Config.User}}')" = "65532:65532"
+          docker rm -f demo
+      - name: trivy image scan
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          version: v0.76.2
+          scan-type: image
+          image-ref: demo-api:ci
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"

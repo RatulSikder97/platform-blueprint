@@ -1,0 +1,49 @@
+name: chart
+
+on:
+  pull_request:
+    paths: ["charts/**", "platform/**", "deploy/**", "local/values-*.yaml", "scripts/validate-chart.sh", ".github/workflows/chart.yml"]
+  push:
+    branches: [main]
+    paths: ["charts/**", "platform/**", "deploy/**", "local/values-*.yaml", "scripts/validate-chart.sh", ".github/workflows/chart.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  HELM_VERSION: "v4.3.2"
+  KUBECONFORM_VERSION: "v0.8.0"
+  TRIVY_VERSION: "v0.76.2"
+
+jobs:
+  lint-validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: azure/setup-helm@2f5e7bc67f1f9972ab16657bb795f36d8f04de0e # v5.1.0
+        with:
+          version: ${{ env.HELM_VERSION }}
+      - name: install kubeconform
+        run: |
+          set -euo pipefail
+          base="https://github.com/yannh/kubeconform/releases/download/${KUBECONFORM_VERSION}"
+          curl -fsSLO "$base/kubeconform-linux-amd64.tar.gz"
+          curl -fsSLO "$base/CHECKSUMS"
+          grep ' kubeconform-linux-amd64.tar.gz$' CHECKSUMS | sha256sum -c -
+          tar -xzf kubeconform-linux-amd64.tar.gz kubeconform
+          sudo install kubeconform /usr/local/bin/kubeconform
+      - name: helm lint + kubeconform (all value sets)
+        run: ./scripts/validate-chart.sh
+      - name: trivy config scan of chart
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          version: ${{ env.TRIVY_VERSION }}
+          scan-type: config
+          scan-ref: charts/service
+          severity: HIGH,CRITICAL
+          exit-code: "1"
