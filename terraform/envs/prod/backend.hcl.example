@@ -1,0 +1,8 @@
+# Copy to backend.hcl (git-ignored) and fill in the bucket created by terraform/bootstrap.
+bucket       = "<state-bucket-name>"
+key          = "platform-blueprint/prod/terraform.tfstate"
+region       = "us-east-1"
+encrypt      = true
+use_lockfile = true # S3-native locking (Terraform >= 1.10)
+# Legacy DynamoDB locking for mixed fleets still on Terraform < 1.10:
+# dynamodb_table = "<lock-table-name>"
