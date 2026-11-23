@@ -1,0 +1,174 @@
+# -- Override the chart name used in resource names.
+nameOverride: ""
+# -- Fully override the release-derived resource name.
+fullnameOverride: ""
+
+image:
+  # -- Image repository (e.g. <account>.dkr.ecr.<region>.amazonaws.com/demo-api).
+  repository: ghcr.io/ratulsikder97/demo-api
+  # -- Image tag. Defaults to .Chart.AppVersion. Prefer an immutable tag or `digest`.
+  tag: ""
+  # -- Optional image digest (sha256:...). Takes precedence over tag.
+  digest: ""
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+
+# -- Fixed replica count. Ignored when autoscaling.enabled=true.
+replicaCount: 2
+
+# -- Extra arguments passed to the container entrypoint.
+args: []
+
+containerPort: 8080
+
+# -- Plain environment variables (name/value or valueFrom).
+env: []
+# -- Additional envFrom sources (ConfigMaps / Secrets).
+envFrom: []
+
+# -- Non-secret configuration rendered into a ConfigMap and loaded via envFrom.
+config: {}
+
+serviceAccount:
+  create: true
+  # -- Name override. Defaults to the fullname.
+  name: ""
+  # -- Annotations, e.g. eks.amazonaws.com/role-arn for IRSA. Not needed with EKS Pod Identity.
+  annotations: {}
+  # -- Only mount a token if the workload talks to the Kubernetes API or uses IRSA.
+  automountToken: false
+
+podAnnotations: {}
+podLabels: {}
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 65532
+  runAsGroup: 65532
+  fsGroup: 65532
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  privileged: false
+  capabilities:
+    drop: ["ALL"]
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    # CPU limits are intentionally omitted (CFS throttling hurts tail latency);
+    # memory limit == request gives predictable OOM behaviour.
+    memory: 128Mi
+
+probes:
+  startup:
+    httpGet: { path: /healthz, port: http }
+    periodSeconds: 2
+    failureThreshold: 30
+  liveness:
+    httpGet: { path: /healthz, port: http }
+    periodSeconds: 10
+    timeoutSeconds: 2
+    failureThreshold: 3
+  readiness:
+    httpGet: { path: /readyz, port: http }
+    periodSeconds: 5
+    timeoutSeconds: 2
+    failureThreshold: 2
+
+# -- Must exceed the app's drain delay + shutdown timeout.
+terminationGracePeriodSeconds: 30
+
+# -- Writable scratch space mounted at /tmp (root FS is read-only).
+tmpVolume:
+  sizeLimit: 64Mi
+
+service:
+  type: ClusterIP
+  port: 80
+  annotations: {}
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+  # -- Optional memory target; leave empty to scale on CPU only.
+  targetMemoryUtilizationPercentage: ""
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+        - type: Percent
+          value: 50
+          periodSeconds: 60
+    scaleUp:
+      stabilizationWindowSeconds: 0
+      policies:
+        - type: Percent
+          value: 100
+          periodSeconds: 30
+
+podDisruptionBudget:
+  enabled: true
+  # -- Use maxUnavailable so the PDB never blocks node drains at minReplicas.
+  maxUnavailable: 1
+
+topologySpread:
+  enabled: true
+  # -- Zone spreading. ScheduleAnyway keeps single-AZ dev clusters schedulable;
+  # set DoNotSchedule in production.
+  zoneWhenUnsatisfiable: ScheduleAnyway
+  hostWhenUnsatisfiable: ScheduleAnyway
+
+networkPolicy:
+  enabled: true
+  # -- Namespaces (by kubernetes.io/metadata.name) allowed to reach the service port.
+  ingressNamespaces: []
+  # -- Namespace where Prometheus runs; allowed to scrape the metrics port.
+  monitoringNamespace: monitoring
+  # -- Allow pods in the same namespace to call this service.
+  allowSameNamespace: true
+  egress:
+    # -- Allow DNS to kube-dns / CoreDNS.
+    dns: true
+    # -- Allow HTTPS (443) to anywhere, e.g. for managed LLM APIs. Disable and use
+    # `extraEgress` for a tighter allow-list.
+    httpsToInternet: true
+    # -- Additional raw egress rules.
+    extra: []
+
+metrics:
+  serviceMonitor:
+    # -- Requires the monitoring.coreos.com CRDs (kube-prometheus-stack / prometheus-operator).
+    enabled: false
+    path: /metrics
+    interval: 30s
+    scrapeTimeout: 10s
+    # -- Extra labels so the Prometheus serviceMonitorSelector picks it up.
+    labels: {}
+
+externalSecret:
+  # -- Requires External Secrets Operator (external-secrets.io/v1 CRDs).
+  enabled: false
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: aws-secrets-manager
+  # -- Map env var name -> remote key/property. Rendered into a Secret loaded via envFrom.
+  data: []
+  #  - secretKey: LLM_API_KEY
+  #    remoteRef:
+  #      key: platform/staging/demo-api
+  #      property: llm_api_key
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+priorityClassName: ""

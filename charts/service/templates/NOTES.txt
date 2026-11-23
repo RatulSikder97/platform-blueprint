@@ -1,0 +1,10 @@
+{{ include "service.fullname" . }} deployed to namespace {{ .Release.Namespace }}.
+
+Port-forward and call it:
+
+  kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "service.fullname" . }} 8080:{{ .Values.service.port }}
+  curl -s localhost:8080/healthz
+
+Run the chart's smoke test:
+
+  helm test {{ .Release.Name }} -n {{ .Release.Namespace }}

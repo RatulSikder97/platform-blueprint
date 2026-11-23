@@ -1,0 +1,40 @@
+# Exercises every optional template. Used by CI (helm lint/template + kubeconform).
+image:
+  repository: 123456789012.dkr.ecr.eu-west-1.amazonaws.com/demo-api
+  digest: sha256:0000000000000000000000000000000000000000000000000000000000000000
+config:
+  LLM_BACKEND: openai
+  LLM_BASE_URL: https://llm-gateway.internal/v1
+  LLM_MODEL: small-model
+  LOG_LEVEL: info
+serviceAccount:
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::123456789012:role/demo-api
+autoscaling:
+  targetMemoryUtilizationPercentage: 80
+topologySpread:
+  zoneWhenUnsatisfiable: DoNotSchedule
+networkPolicy:
+  ingressNamespaces: [ingress-nginx]
+  egress:
+    httpsToInternet: false
+    extra:
+      - to:
+          - ipBlock:
+              cidr: 10.0.0.0/16
+        ports:
+          - port: 443
+            protocol: TCP
+metrics:
+  serviceMonitor:
+    enabled: true
+    labels:
+      release: kube-prometheus-stack
+externalSecret:
+  enabled: true
+  data:
+    - secretKey: LLM_API_KEY
+      remoteRef:
+        key: platform/prod/demo-api
+        property: llm_api_key
+priorityClassName: service-critical

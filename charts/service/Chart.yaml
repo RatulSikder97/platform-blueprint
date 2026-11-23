@@ -1,0 +1,14 @@
+apiVersion: v2
+name: service
+description: Opinionated, secure-by-default chart for a stateless HTTP microservice on EKS.
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+kubeVersion: ">=1.29.0-0"
+keywords: [microservice, eks, prometheus, external-secrets]
+home: https://github.com/RatulSikder97/platform-blueprint
+sources:
+  - https://github.com/RatulSikder97/platform-blueprint/tree/main/charts/service
+maintainers:
+  - name: RatulSikder97
+    url: https://github.com/RatulSikder97
