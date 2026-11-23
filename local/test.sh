@@ -32,6 +32,8 @@ wait_for_port() {
 echo "==> helm test"
 helm test "$RELEASE" -n "$NAMESPACE" --timeout 2m >/dev/null && pass "helm test (in-cluster request via Service)"
 
+kubectl -n monitoring wait --for=condition=Ready pod -l app.kubernetes.io/name=prometheus --timeout=5m >/dev/null
+
 kubectl -n "$NAMESPACE" port-forward "svc/$SVC" "$APP_PORT:80" >/dev/null 2>&1 & pids+=($!)
 kubectl -n monitoring port-forward svc/kube-prometheus-stack-prometheus "$PROM_PORT:9090" >/dev/null 2>&1 & pids+=($!)
 wait_for_port "$APP_PORT"

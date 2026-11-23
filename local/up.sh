@@ -44,6 +44,16 @@ helm upgrade --install kube-prometheus-stack prometheus-community/kube-prometheu
   --version "$KPS_VERSION" --namespace monitoring --create-namespace \
   -f "$ROOT/local/values-kube-prometheus-stack.yaml" --wait --timeout 10m
 
+# helm --wait only covers resources in the release. The Prometheus StatefulSet
+# is created afterwards by the operator, so wait for it explicitly.
+log "waiting for Prometheus (operator-managed StatefulSet)"
+PROM_STS="prometheus-kube-prometheus-stack-prometheus"
+for _ in $(seq 1 60); do
+  kubectl -n monitoring get statefulset "$PROM_STS" >/dev/null 2>&1 && break
+  sleep 2
+done
+kubectl -n monitoring rollout status "statefulset/$PROM_STS" --timeout 5m
+
 log "deploying $RELEASE via charts/service"
 kubectl create namespace "$NAMESPACE" --dry-run=client -o yaml | kubectl apply -f - >/dev/null
 # Force a new rollout when the locally built image changes under the same tag.
