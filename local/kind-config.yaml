@@ -1,0 +1,18 @@
+# Local stand-in for the EKS cluster: 1 control plane + 2 workers labelled
+# with fake AZs so topology spread constraints behave like they do on AWS.
+# The default CNI (kindnet) enforces NetworkPolicy, so the chart's policies
+# are exercised locally too.
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: platform-blueprint
+nodes:
+  - role: control-plane
+    image: kindest/node:v1.35.8@sha256:07b2536e30b803ed61d1677a79df6115f798ce64c80f9e22f6ed45afd09323c0
+  - role: worker
+    image: kindest/node:v1.35.8@sha256:07b2536e30b803ed61d1677a79df6115f798ce64c80f9e22f6ed45afd09323c0
+    labels:
+      topology.kubernetes.io/zone: local-1a
+  - role: worker
+    image: kindest/node:v1.35.8@sha256:07b2536e30b803ed61d1677a79df6115f798ce64c80f9e22f6ed45afd09323c0
+    labels:
+      topology.kubernetes.io/zone: local-1b

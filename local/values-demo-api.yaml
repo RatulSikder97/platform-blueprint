@@ -1,0 +1,19 @@
+# demo-api on the local kind cluster. Image is built locally and side-loaded.
+nameOverride: demo-api
+image:
+  repository: demo-api
+  tag: local
+  pullPolicy: Never
+config:
+  LLM_BACKEND: fake
+  LOG_LEVEL: info
+  SHUTDOWN_DRAIN_DELAY: 3s
+autoscaling:
+  minReplicas: 2
+  maxReplicas: 4
+metrics:
+  serviceMonitor:
+    enabled: true
+    interval: 15s
+networkPolicy:
+  monitoringNamespace: monitoring
