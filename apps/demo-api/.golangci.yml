@@ -1,0 +1,17 @@
+version: "2"
+linters:
+  enable:
+    - bodyclose
+    - errorlint
+    - gosec
+    - misspell
+    - noctx
+    - revive
+    - unconvert
+  settings:
+    misspell:
+      locale: US
+formatters:
+  enable:
+    - gofmt
+    - goimports

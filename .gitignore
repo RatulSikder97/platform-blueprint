@@ -1,0 +1,27 @@
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+backend.hcl
+*.auto.tfvars
+terraform.tfvars
+# Lock files are committed for root configurations only.
+terraform/modules/**/.terraform.lock.hcl
+
+# Go
+apps/demo-api/demo-api
+*.test
+*.out
+coverage.*
+
+# Editors / OS
+.DS_Store
+.idea/
+.vscode/
